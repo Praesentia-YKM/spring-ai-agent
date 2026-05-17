@@ -533,8 +533,5 @@ AI 가 생성한 코드는 "동작" 하지만 **production 책임 (정책·관�
 - [Spring AI 1.0 공식 docs](https://docs.spring.io/spring-ai/reference/)
   - [Structured Output Converter](https://docs.spring.io/spring-ai/reference/api/structured-output-converter.html)
   - [ChatClient API](https://docs.spring.io/spring-ai/reference/api/chatclient.html)
-- 강의 본문: Round 1 — Spring AI 기초와 배달 상담 에이전트 설계 (Notion)
-- Quest: Round 1 Quests (Notion)
-- 스타터 코드: <https://github.com/loopers-labs/loop-play-spring-ai-agent>
 </content>
 </invoke>
