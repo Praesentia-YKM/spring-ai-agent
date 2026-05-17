@@ -2,7 +2,7 @@ package com.baedal.support;
 
 public final class BaedalPrompt {
 
-    // TODO [1단계]: 배달 상담 도메인에 맞는 System Prompt를 설계하라.
+    // 배달 상담 도메인에 맞는 System Prompt를 설계하라.
     //
     // 좋은 System Prompt는 [역할] / [규칙] / [금지] / [응답 포맷] 네 섹션으로 구성한다.
     //
@@ -35,6 +35,11 @@ public final class BaedalPrompt {
             1) 핵심 답변 (3문장 이내 요약)
             2) 필요 시 추가 확인 질문
             3) 다음에 취할 액션 제안
+            4) 예상 처리 시간 카테고리는 다음 중 하나로 분류합니다:
+               - IMMEDIATE: 즉시 답변 가능한 단순 안내성 문의
+               - WITHIN_30MIN: 30분 내 처리 가능한 단순 조회 (배달 위치 등)
+               - WITHIN_1DAY: 1일 내 처리 가능한 일반 취소·환불
+               - EXTENDED: 분쟁·조사가 필요한 장기 처리 건
             """;
 
     private BaedalPrompt() {}

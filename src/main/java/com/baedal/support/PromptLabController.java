@@ -15,20 +15,25 @@ import java.util.stream.Collectors;
 public class PromptLabController {
 
     private final ChatClient.Builder builder;
+    private final PerformanceLoggingAdvisor performanceAdvisor;
 
-    // TODO [2단계]: 프롬프트 정량 비교 실험 엔드포인트를 구현하라.
-    //
-    // 구현 힌트:
-    // 1. req.systemPrompt()를 System Prompt로 설정한 ChatClient를 빌드한다.
-    // 2. req.repeat() 횟수만큼 반복하여 .entity(SupportResponse.class)를 호출한다.
-    // 3. 결과 리스트를 PromptLabResult.from()에 넘겨 통계를 계산한다.
-    //
-    // 실험 후:
-    // - 단순 프롬프트 vs 구조화된 프롬프트로 각 5회 호출
-    // - categoryConsistency 수치를 비교하여 README에 기록
     @PostMapping
     public PromptLabResult experiment(@RequestBody PromptLabRequest req) {
-        throw new UnsupportedOperationException("TODO: 구현하세요");
+        var client = builder
+                .defaultSystem(req.systemPrompt())
+                .defaultAdvisors(performanceAdvisor)
+                .build();
+
+        var results = new ArrayList<SupportResponse>();
+        for (int i = 0; i < req.repeat(); i++) {
+            var response = client.prompt()
+                    .user(req.message())
+                    .call()
+                    .entity(SupportResponse.class);
+            results.add(response);
+        }
+
+        return PromptLabResult.from(results);
     }
 
     public record PromptLabRequest(
@@ -41,7 +46,8 @@ public class PromptLabController {
             int totalRuns,
             Map<String, Long> categoryCounts,
             Map<String, Long> urgencyCounts,
-            double categoryConsistency
+            double categoryConsistency,
+            List<SupportResponse> rawResults
     ) {
         public static PromptLabResult from(List<SupportResponse> results) {
             var catCounts = results.stream()
@@ -55,7 +61,8 @@ public class PromptLabController {
 
             return new PromptLabResult(
                     results.size(), catCounts, urgCounts,
-                    results.isEmpty() ? 0 : (double) maxCat / results.size()
+                    results.isEmpty() ? 0 : (double) maxCat / results.size(),
+                    results
             );
         }
     }
