@@ -389,19 +389,130 @@ LLM 호출 완료 — 6977ms | 입력 토큰: 692 | 출력 토큰: 89 | 총 토�
 
 ### AI 코드 리뷰 (Quest 4단계 평가 핵심)
 
-> ⏳ 학습자 본인이 진행해야 할 작업.
->
-> 방법: ChatGPT / Claude 에게 "Spring AI 로 배달 상담 챗봇을 만들어줘" 라고 요청 → 받은 코드에서 다음 같은 **프로덕션 결함 3개 이상** 을 찾아서 기록.
-> - API Key 하드코딩
-> - 에러 핸들링 부재
-> - System Prompt 미설계
-> - 입력 검증 없음
-> - 토큰 제한 미고려
-> - 동기 호출만 구현 (Streaming 없음)
-> - 로깅/모니터링 없음
-> - 문자열 파싱 (Structured Output 미사용)
->
-> 각 결함에 대해 **이 프로젝트에서는 어떻게 해결했는가** 도 같이 적으면 평가에서 최고점.
+> 🤖 멘토 초안. 범용 LLM 이 "Spring AI 로 배달 상담 챗봇 만들어줘" 라고 했을 때 흔히 생성하는 *naive* 코드를 시뮬레이션 + 결함 분석 + 본 프로젝트의 해결책 비교.
+
+#### AI 가 흔히 생성하는 naive 코드
+
+```java
+@RestController
+@RequestMapping("/chat")
+public class DeliveryChatbotController {
+
+    private final ChatClient chatClient;
+
+    public DeliveryChatbotController(ChatClient.Builder builder) {
+        this.chatClient = builder.build();
+    }
+
+    @PostMapping
+    public String chat(@RequestParam String message) {
+        return chatClient.prompt()
+                .user(message)
+                .call()
+                .content();
+    }
+}
+```
+
+```yaml
+# application.yml
+spring:
+  ai:
+    openai:
+      api-key: sk-proj-xxxxxxxxxxxxxxxx   # ⚠️ 평문 하드코딩
+      chat:
+        model: gpt-4
+```
+
+겉보기엔 "동작" 한다. 그러나 production 에 그대로 올리면 다음과 같은 결함이 즉각 드러난다.
+
+---
+
+#### 결함 1 — System Prompt 미설계 → 정책 부재로 인한 가짜 약속·타사 추천·개인정보 노출
+
+**문제:**
+- AI 가 생성한 코드는 사용자 메시지를 LLM 에게 **그대로** 보낸다. `[역할]/[규칙]/[금지]/[응답 포맷]` 같은 도메인 가이드라인이 전혀 없다.
+- 결과적으로 LLM 은 "사장님 전화번호 알려줘" 같은 공격 시나리오에 임의로 가짜 번호를 만들어내거나, "쿠팡이츠가 더 낫다" 라고 응답하거나, 임의로 환불·쿠폰을 약속할 수 있다 (실패 관찰의 실험 C 결과가 이를 증명).
+- **법적 분쟁 · 브랜드 손상 · 개인정보 보호법 위반 위험**.
+
+**본 프로젝트의 해결:**
+- `BaedalPrompt.SYSTEM_PROMPT` 를 [역할]·[규칙]·[금지]·[응답 포맷] 4섹션으로 명시 설계.
+- 실험 C 로 [금지] 섹션의 효과 정량 검증 — [규칙] 만으론 자기 모순적 응답이 발생하고, [금지] 가 다중 필드 일관성을 보장함을 확인.
+- 자세한 결정 근거: [`ADR-006`](docs/round1/adr/ADR-006-streaming-vs-call-scope.md) 및 [`실패 관찰`](docs/round1/failure-observations/round1-failure-observations.md) 의 "[금지] vs [규칙] 역할 분리".
+
+---
+
+#### 결함 2 — 문자열 파싱 (Structured Output 미사용) → 시스템 분기 로직 불가능
+
+**문제:**
+- `.content()` 만 반환 → `String` 한 줄. 시스템이 응답에서 `category=DELIVERY` 같은 분기 정보를 꺼내려면 정규식·문자열 파싱이 필요한데, LLM 응답은 **결정론적 형식이 아니라** 매번 표현이 흔들린다. 파싱은 곧 부서진다.
+- enum 가능값 보장도 없다 — LLM 이 "주문관련" 같은 임의 한국어를 뱉으면 후속 라우팅 로직이 무력화.
+
+**본 프로젝트의 해결:**
+- `SupportResponse` record + `.entity(SupportResponse.class)` 로 Structured Output. `BeanOutputConverter` 가 JSON Schema 를 자동 주입해 LLM 이 처음부터 JSON 으로 답하도록 강제.
+- `Category` / `Urgency` / `EstimatedResolution` enum 가능값을 schema 로 제약 → enum 외 값은 Jackson 역직렬화에서 거부.
+- 자세한 결정: [`ADR-002`](docs/round1/adr/ADR-002-structured-output-entity.md), [`ADR-003`](docs/round1/adr/ADR-003-estimated-resolution-enum.md).
+
+---
+
+#### 결함 3 — 동기 호출만 구현 (Streaming 없음) → 사용자 7초 대기 → "응답 없음" UX 최악
+
+**문제:**
+- `.call()` 만 사용 → 전체 응답이 생성될 때까지 클라이언트는 빈 화면. qwen2.5 평균 약 7초 (실험 D 측정값 `6977ms`).
+- Q4 학습 노트의 임계 — 고객이 "응답 없음" 으로 느끼는 시간 3초 — 의 2배 초과.
+- 챗봇 도메인에선 이게 곧 이탈률 증가로 직결.
+
+**본 프로젝트의 해결:**
+- `/api/v1/chat/stream` 을 별도 엔드포인트로 분리 (`.stream() + Flux<String>` + SSE).
+- Streaming 은 자유 텍스트 응답에만 적용, Structured Output 응답은 동기 호출 유지 — 둘의 본질적 충돌을 타입 시스템 차원에서 인지.
+- 자세한 결정: [`ADR-006`](docs/round1/adr/ADR-006-streaming-vs-call-scope.md). 측정 근거: 첫 글자 도착이 7초 → 0.3~0.5초로 단축.
+
+---
+
+#### 결함 4 — 로깅·모니터링 없음 → 토큰 비용·응답 시간 추적 불가
+
+**문제:**
+- AI 가 생성한 코드엔 어떠한 LLM 호출 메타데이터 로깅도 없다. **얼마나 느린지·얼마나 비싼지 모르고** production 에 올라간다.
+- LLM 비용은 입력 토큰 + 출력 토큰 + 모델 단가의 곱으로 결정되는데, 측정이 없으면 비용 폭증을 사후에 발견할 수밖에 없다.
+- System Prompt 를 변경했을 때의 영향도 정량 비교 불가.
+
+**본 프로젝트의 해결:**
+- `PerformanceLoggingAdvisor` 를 `CallAdvisor` 구현으로 작성 → `SupportController` 와 `PromptLabController` 양쪽에 `.defaultAdvisors(performanceAdvisor)` 등록.
+- `LLM 호출 완료 — 6977ms | 입력 토큰: 693 | 출력 토큰: 90 | 총 토큰: 783` 같은 한 줄 로그가 모든 호출에 남는다.
+- 실험 D 의 정량 측정 (System Prompt 1x vs 2x → 입력 토큰 +52.7%) 이 이 인프라 덕분에 가능했다.
+- null 방어로 provider 메타데이터 누락 / 캐싱·Mock Advisor 우회 시에도 안전.
+- 자세한 결정: [`ADR-007`](docs/round1/adr/ADR-007-performance-advisor-registration.md).
+
+---
+
+#### 결함 5 — API Key 하드코딩 → 시크릿 노출
+
+**문제:**
+- `application.yml` 에 `api-key: sk-proj-xxx` 가 평문 하드코딩. 커밋에 그대로 들어가면 GitHub 검색 봇에 분초 단위로 발견되어 도용·요금 폭주.
+
+**본 프로젝트의 해결:**
+- Ollama 로컬 모델을 채택해 **API Key 자체가 필요 없는 구조** (`ADR-001`).
+- 향후 클라우드 모델로 전환 시: `application.yml` 에서는 `${OPENAI_API_KEY}` 같은 환경 변수 참조 + `.gitignore` 처리.
+
+---
+
+#### 본 프로젝트도 미해결인 결함 (정직한 자기 평가)
+
+| 결함 | 현 상태 | 향후 |
+|------|--------|------|
+| **입력 검증 부재** | 사용자 메시지 길이·내용 검증 없음. 매우 긴 입력이나 prompt injection 방어 없음 | Round 5 Guardrail 에서 다룸 |
+| **에러 핸들링 부재** | LLM 호출 실패 시 5xx 그대로 노출, `@ControllerAdvice` 없음 | 운영 라운드에서 보강 |
+| **토큰 제한 미고려** | 입력 메시지에 길이 제한 없음 → 토큰 비용 폭주 가능 | Guardrail + 사전 검증 |
+| **세션·메모리** | 단발성 호출만. 이전 대화 맥락 없음 | Round 3 Chat Memory Advisor |
+| **사실 grounding** | 시스템 데이터와 무관한 응답 (실패 관찰 hallucination 경향) | Round 4 RAG |
+
+→ AI 가 생성한 코드의 결함을 다 잡지는 못했다는 점이 평가의 출발점. **남은 결함이 다음 라운드의 학습 동기**가 된다.
+
+---
+
+#### 메타 결론
+
+AI 가 생성한 코드는 "동작" 하지만 **production 책임 (정책·관찰·확장성·보안)** 을 거의 다 누락한다. Spring AI 1.0 의 `ChatClient` API 가 충분히 강력하기 때문에 *문법적으로 짧은 코드* 가 가능한데, 그 짧음이 곧 production 책임의 누락을 가린다. 학습자가 직접 결함을 찾고 수정하는 과정이 곧 **"AI 보조 개발에서 사람이 책임지는 영역"** 의 윤곽이다.
 
 ---
 
