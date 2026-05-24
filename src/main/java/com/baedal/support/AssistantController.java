@@ -4,15 +4,14 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/v1/support")
-public class SupportController {
+@RequestMapping("/api/v1/assistant")
+public class AssistantController {
 
     private final ChatClient chatClient;
 
-    public SupportController(ChatClient.Builder builder,
-                             PerformanceLoggingAdvisor performanceAdvisor,
-                             OrderTools orderTools) {
-        // ✅ 생성자에서 한 번만 build() — Round 2 강의 2.5.1 빌더 누적 함정 회피
+    public AssistantController(ChatClient.Builder builder,
+                               PerformanceLoggingAdvisor performanceAdvisor,
+                               OrderTools orderTools) {
         this.chatClient = builder
                 .defaultSystem(BaedalPrompt.SYSTEM_PROMPT)
                 .defaultAdvisors(performanceAdvisor)
@@ -21,10 +20,10 @@ public class SupportController {
     }
 
     @PostMapping
-    public SupportResponse triage(@RequestBody ChatRequest req) {
+    public String ask(@RequestBody ChatRequest req) {
         return chatClient.prompt()
                 .user(req.message())
                 .call()
-                .entity(SupportResponse.class);
+                .content();
     }
 }

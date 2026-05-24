@@ -12,3 +12,6 @@ spring:
 logging:
   level:
     org.springframework.ai: DEBUG
+    org.springframework.ai.ollama: TRACE
+    org.springframework.ai.model.tool: TRACE
+    org.springframework.web.client: DEBUG
