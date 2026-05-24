@@ -30,7 +30,8 @@ curl -s -X POST http://localhost:8080/api/v1/chat \
 
 - [`prd/`](prd/round2-prd.md) — 본 라운드 목표·범위·평가 기준
 - [`retrospective/`](retrospective/round2-retrospective.md) — 학습 흐름과 아하 모먼트
-- [`failure-observations/`](failure-observations/round2-failure-observations.md) — 관찰된 실패·위험 8건
+- [`failure-observations/`](failure-observations/round2-failure-observations.md) — 관찰된 실패·위험 9건
+- [`raw/`](raw/scenarios.md) — 응답 본문·Tool 콘솔 로그 원본
 - [`adr/`](adr/ADR-001-simple-logger-advisor-debug-pipeline.md) — 의사결정 기록
 - [`ai-code-review.md`](ai-code-review.md) — AI 생성 코드의 결함 8가지와 본 학습자 코드의 대응
 
@@ -44,6 +45,47 @@ curl -s -X POST http://localhost:8080/api/v1/chat \
 - View DTO — `OrderDetailView`, `DeliveryStatusView`, `CancelOrderResult` (+ `Outcome` enum)
 - `AssistantController`, `SupportController` — 생성자에서 한 번만 `.build()` + `.defaultTools()`
 
+### Mock 데이터 — 4건 추가 코드
+
+기존 2건(`2024-1234` DELIVERING, `2024-1235` CREATED)에 4건을 추가해 Quest 시나리오를 커버한다. [`OrderMockService.java`](../../src/main/java/com/baedal/support/OrderMockService.java) 발췌:
+
+```java
+// 2024-1236: DELIVERED — 시나리오 4 (이미 배달 완료, 취소 불가)
+put(new Order(
+        "2024-1236", "스타벅스 강남R점",
+        List.of(new OrderItem("아메리카노 T", 2, 4500),
+                new OrderItem("치즈케이크", 1, 6500)),
+        15500, now.minusMinutes(80), now.minusMinutes(20),
+        "서울 강남구 테헤란로 555", null,
+        OrderStatus.DELIVERED));
+
+// 2024-1237: COOKING — 조리 시작 — 취소 불가 다른 경로
+put(new Order(
+        "2024-1237", "BHC 강남직영점",
+        List.of(new OrderItem("뿌링클", 1, 22000)),
+        22000, now.minusMinutes(10), now.plusMinutes(45),
+        "서울 강남구 삼성동 99-1", null,
+        OrderStatus.COOKING));
+
+// 2024-1238: 사전 CANCELED — 멱등 테스트용 (canceledReason 채워둠)
+Order canceled = new Order(
+        "2024-1238", "BBQ 역삼점",
+        List.of(new OrderItem("황금올리브", 1, 21000)),
+        21000, now.minusMinutes(45), now.minusMinutes(30),
+        "서울 강남구 역삼동 555-1", null,
+        OrderStatus.ACCEPTED);
+canceled.cancel("고객 요청", now.minusMinutes(40));   // ← 사전 취소 상태로 진입
+put(canceled);
+
+// 2024-1239: ACCEPTED — Quest 2단계 멱등성 실험용 (취소 후 재취소 → ALREADY_CANCELED)
+put(new Order(
+        "2024-1239", "도미노피자 강남점",
+        List.of(new OrderItem("페퍼로니피자 L", 1, 28900)),
+        28900, now.minusMinutes(5), now.plusMinutes(35),
+        "서울 강남구 신사동 77-3", null,
+        OrderStatus.ACCEPTED));
+```
+
 ### 시나리오 5종 결과 (2026-05-25)
 
 | # | 입력 | 기대 Tool | 실제 호출 | 응답 핵심 | 판정 |
@@ -56,6 +98,8 @@ curl -s -X POST http://localhost:8080/api/v1/chat \
 | 5 | 2099-9999 어디예요? | getDeliveryStatus (null) | 호출됨 | "해당 주문은 존재하지 않습니다" | 통과 |
 
 시나리오 4는 System Prompt의 `[규칙] 정보 부족 시 되묻기`가 Tool 호출 자체를 차단한 케이스. 사유를 명시한 4-b에서는 정상 호출됨. 자세한 분석은 [관찰 6](failure-observations/round2-failure-observations.md).
+
+각 시나리오의 **응답 본문 원본**과 **Tool 콘솔 로그**: [`raw/scenarios.md`](raw/scenarios.md) §1단계.
 
 ### 설계 결정 (Q&A)
 
@@ -208,7 +252,80 @@ LLM이 Tool 결정에서 참조하는 신호 (영향력 강한 순):
 
 ### AI 코드 리뷰
 
-별도 문서 [`ai-code-review.md`](ai-code-review.md). AI가 일반적으로 생성하는 `@Tool cancelOrder` 코드의 결함 8가지와 본 학습자 코드의 대응을 코드 라인 단위로 정리.
+#### 프롬프트
+```
+Spring AI 1.0으로 배달 주문 취소 Tool을 만들어줘.
+@Tool 어노테이션을 써야 해. 주문번호와 취소 사유를 받고,
+취소가 성공하면 true, 실패하면 false를 반환해.
+```
+
+#### AI 생성 원본 코드 (베이스라인)
+```java
+@Component
+public class OrderCancelTool {
+
+    @Autowired
+    private OrderRepository orderRepository;
+
+    @Tool("Cancel an order by orderId")
+    public boolean cancelOrder(String orderId, String reason) {
+        Order order = orderRepository.findById(orderId).orElseThrow();
+        order.setStatus("CANCELED");
+        order.setCanceledReason(reason);
+        orderRepository.save(order);
+        return true;
+    }
+}
+```
+
+#### 결함 8가지와 본 학습자 코드의 대응
+
+| # | AI 코드 결함 | Round 2 도구 | 본 학습자 코드 적용 위치 |
+|---|-------------|--------------|--------------------------|
+| 1 | 멱등성 없음 — 두 번째 호출 시 status 덮어쓰임 | `Outcome.ALREADY_CANCELED` 분기 | `OrderTools.cancelOrder` L40~43 |
+| 2 | 예외 직접 throw — LLM이 fallback 불가 | `Outcome.NOT_FOUND` 반환 | `OrderTools.cancelOrder` L31~34 |
+| 3 | 반환 정보 부족 — boolean만 반환 | `CancelOrderResult` + `Outcome` 4분기 | `CancelOrderResult.java` |
+| 4 | 권한 검증 없음 | (Round 5 Guardrail에서) | TODO |
+| 5 | description 부실 — 영어 한 줄 | 한국어 4요소(무엇/언제/입력/실패) | `OrderTools.cancelOrder` description |
+| 6 | 로깅 없음 — 감사 불가 | `@Slf4j` + `log.info("[Tool] cancelOrder...")` | `OrderTools.cancelOrder` L49 |
+| 7 | Outcome 구분 없음 | `Outcome` enum 4분기 + 자연어 message | `CancelOrderResult.Outcome` |
+| 8 | `ChatClient.Builder` 매 요청 `.build()` | 생성자에서 한 번만 build | `AssistantController` / `SupportController` 생성자 |
+
+#### 개선 코드 (본 학습자 `OrderTools.cancelOrder`)
+```java
+@Tool(description = """
+        주어진 주문번호의 주문을 취소한다.
+        취소 가능 조건: 주문 상태가 CREATED 또는 ACCEPTED인 경우에만 가능.
+        조리가 이미 시작된(COOKING 이후) 주문은 자동 취소할 수 없다 (NOT_CANCELABLE).
+        이미 취소된 주문을 다시 취소 요청하면 에러가 아닌 ALREADY_CANCELED 결과를 돌려준다 (멱등).
+        존재하지 않는 주문번호면 NOT_FOUND를 반환한다.
+        결과는 항상 CancelOrderResult 객체로 반환되며, outcome 필드에서 성공/실패 사유를 확인할 수 있다.
+        """)
+public CancelOrderResult cancelOrder(
+        @ToolParam(description = "취소할 주문번호. 예: 2024-1234") String orderId,
+        @ToolParam(description = "고객이 말한 취소 사유. 예: '집앞에 사람이 없어요'") String reason) {
+    log.info("[Tool] cancelOrder(orderId={}, reason={})", orderId, reason);  // 결함 6 대응
+
+    Order order = orderService.findById(orderId).orElse(null);
+    if (order == null) {
+        return new CancelOrderResult(orderId, Outcome.NOT_FOUND,            // 결함 2 대응
+                "해당 주문번호를 찾을 수 없습니다.");
+    }
+    if (order.getStatus() == OrderStatus.CANCELED) {
+        return new CancelOrderResult(orderId, Outcome.ALREADY_CANCELED,      // 결함 1 대응
+                "해당 주문은 이미 취소된 상태입니다. (취소 사유: " + order.getCanceledReason() + ")");
+    }
+    if (!order.isCancelable()) {
+        return new CancelOrderResult(orderId, Outcome.NOT_CANCELABLE,        // 결함 7 대응
+                "조리가 이미 시작되어(" + order.getStatus() + ") 자동 취소가 불가합니다.");
+    }
+    order.cancel(reason, LocalDateTime.now());
+    return new CancelOrderResult(orderId, Outcome.CANCELED,                  // 결함 3 대응
+            "주문이 취소되었습니다. 결제 취소는 카드사에 따라 최대 7영업일이 소요될 수 있습니다.");
+}
+```
+
+자세한 분석(다음 라운드 연결, 평가 채점 기준)은 별도 문서 [`ai-code-review.md`](ai-code-review.md).
 
 ---
 
@@ -221,9 +338,6 @@ LLM이 Tool 결정에서 참조하는 신호 (영향력 강한 순):
 
 ### 내가 배운 것
 
-_(아직 미작성)_
-
-참고할 만한 멘토 정리:
 - Tool Calling 메커니즘 — description은 `messages` 슬롯이 아니라 `OllamaOptions.tools` 별도 슬롯에 박혀 LLM에 전달된다.
 - 판단/실행 분리는 보안만이 아니라 호출당 토큰 비용과 감사(audit) 가능성에도 직결된다.
 - 멱등성은 LLM 비결정성이 프로덕션 사고로 직결되는 첫 지점이다. `Outcome` enum은 단순 코드값이 아니라 LLM이 읽는 자연어 신호다.
@@ -240,9 +354,6 @@ _(아직 미작성)_
 
 ### Round 3 (Chat Memory)에 시도하고 싶은 것
 
-_(아직 미작성)_
-
-참고할 만한 멘토 후보:
 - *"그거 취소해주세요"* 같은 지시 대명사 해결 — 최근 orderId를 ChatMemory에 누적
 - 시나리오 4 "사유 없이 취소 요청" 케이스에서 이전 대화의 사유를 메모리에서 끌어오기
 - 같은 사용자가 같은 주문을 세션 내에서 다시 취소하는 경우 — 메모리로 ALREADY_CANCELED를 더 정중하게 안내
@@ -251,8 +362,6 @@ _(아직 미작성)_
 
 ## 참조
 
-- Notion Round 2 강의: https://www.notion.so/36a2e1bd53b281449fa5c1abf444072d
-- Notion Round 2 Quests: https://www.notion.so/36a2e1bd53b281d9a04bf5fa4618fe63
 - Spring AI Tools 공식 docs: https://docs.spring.io/spring-ai/reference/api/tools.html
 - Round 1 결과: [`../round1/`](../round1/) + 루트 [`README.md`](../../README.md)
 - 학습 QnA 노트: [`../learning-spring-ai-round2-qa-notes.md`](../learning-spring-ai-round2-qa-notes.md)
