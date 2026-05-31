@@ -78,6 +78,7 @@ curl -s -X DELETE http://localhost:8080/api/v1/session/demo
 - **B=2는 turn7 "그거 취소"·turn9 "그 주문"에서 붕괴** → "정확한 주문번호를 알려달라". 요약(turn10)도 1235·앞부분 소실.
 - **A≈C**: 차이는 11턴째(20메시지 초과)부터. 10턴에선 둘 다 누적.
 - 토큰표·실패 캡처: [raw §2단계](raw/scenarios.md). 근거: [ADR-001](adr/ADR-001-max-messages-20.md), [관찰 3](failure-observations/round3-failure-observations.md).
+- 설계 결정(요약 vs 윈도우 / 프로덕션 금지 기준 80% / 오래된 대화 / 고객 단위 영속): [ADR-006](adr/ADR-006-memory-policy-decisions.md).
 
 ---
 
@@ -89,6 +90,8 @@ curl -s -X DELETE http://localhost:8080/api/v1/session/demo
 | InMemory | ❌ | JVM 종료 시 소멸 |
 | jdbc:h2:**mem** | ❌ | 재시작 후 `/session/ids`=`[]` |
 | jdbc:h2:**file** | ✅ | 재시작 후 1234 맥락 생존 |
+
+시나리오 5종을 JDBC 프로필에서 재실행 → 응답 거동 **InMemory와 동일** 확인 ([raw §3 Part 3](raw/scenarios.md)).
 
 ### 의사결정 트리 (요약)
 - **InMemory 충분**: 단일 인스턴스 + 짧은 세션 + 감사 불필요.

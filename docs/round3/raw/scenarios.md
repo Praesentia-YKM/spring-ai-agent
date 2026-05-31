@@ -227,3 +227,15 @@ jdbc-A          | USER      | 그거 언제 도착해요?
 ### 부트 실패 → 우회 (관찰 4)
 첫 시도 시 `No schema scripts found ... schema-h2.sql` 로 기동 실패. Spring AI 1.0.0은 H2 스키마 미동봉.
 → `spring.ai.chat.memory.repository.jdbc.platform=postgresql` 로 `schema-postgresql.sql` 강제 로드하여 해결.
+
+### Part 3. 시나리오 5종 JDBC 재실행 (응답 거동 동일 확인)
+jdbc 프로필(h2:mem)에서 1단계 5종을 그대로 재실행 → **InMemory와 동일하게 동작**:
+| # | 결과 (JDBC) | 판정 |
+|---|---|---|
+| 1 | "그거" → 1234 도착시간 | ✅ |
+| 2 | 취소 대상 1234→1235 전환 (cancelOrder 호출) | ✅ |
+| 3 | "아까 물어본 그 주문" → 1234 | ✅ |
+| 4 | s4b 맥락 없음 (세션 분리) | ✅ |
+| 5 | DELETE 후 Memory `[]`, "그거" 해석 불가 | ✅ |
+
+`/session/ids` = `["s1","s2","s3","s4a","s4b","s5"]`. 저장소(③)만 교체했을 뿐 ④·⑤ 로직이 동일하므로 응답 거동이 보존된다. (포맷 누수 `IMALACTION:`·`[예상 도착 시각]` 템플릿·중국어 등은 기존 qwen2.5 관찰의 재현 — [관찰 1·7](../failure-observations/round3-failure-observations.md).)
