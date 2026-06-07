@@ -78,8 +78,8 @@ public class RagConfig {
     //   - 만약 문서가 "사용자 리뷰 10만 건"이라면 청크 크기 선택이 어떻게 달라져야 하는가?
     @Bean
     public TokenTextSplitter tokenTextSplitter() {
-        // TODO: TokenTextSplitter 인스턴스 반환
-        return null;
+        // [round4-02 레퍼런스 완성 — ①] chunkSize 800 / minChunkSizeChars 350
+        return new TokenTextSplitter(800, 350, 5, 10_000, true);
     }
 
     // TODO [1단계-D] QuestionAnswerAdvisor Bean을 등록하라.
@@ -106,7 +106,14 @@ public class RagConfig {
     //   - similarityThreshold만으로 환각을 100% 막을 수 있는가? Fallback 프롬프트와 어떻게 협업하는가?
     @Bean
     public QuestionAnswerAdvisor questionAnswerAdvisor(VectorStore vectorStore) {
-        // TODO: SearchRequest + QuestionAnswerAdvisor 빌드해 반환 (order=20)
-        return null;
+        // [round4-02 레퍼런스 완성 — ①] order(20): Memory(10) 뒤, Performance(100) 앞
+        SearchRequest searchRequest = SearchRequest.builder()
+                .topK(TOP_K)
+                .similarityThreshold(SIMILARITY_THRESHOLD)
+                .build();
+        return QuestionAnswerAdvisor.builder(vectorStore)
+                .searchRequest(searchRequest)
+                .order(20)
+                .build();
     }
 }
