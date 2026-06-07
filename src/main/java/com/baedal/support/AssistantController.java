@@ -12,9 +12,9 @@ public class AssistantController {
 
     private final ChatClient chatClient;
 
-    // TODO [1단계-G] Advisor 체인에 ragAdvisor를 추가하라.
+    // [1단계-G — round4-04 레퍼런스 완성 ③] Advisor 체인에 ragAdvisor가 추가돼 있다.
     //
-    // 아래 .defaultAdvisors(...)를 다음과 같이 바꾼다:
+    // 참고: .defaultAdvisors(...)는 다음과 같이 구성된다:
     //   .defaultAdvisors(memoryAdvisor, ragAdvisor, performanceAdvisor)
     //                    order=10       order=20    order=100
     // 순서 주의: memory가 먼저 "아까 그 주문"의 orderId를 복원해야
@@ -30,8 +30,8 @@ public class AssistantController {
         // 그 '뒤'의 입력 토큰을 PerformanceLoggingAdvisor가 측정한다.
         this.chatClient = builder
                 .defaultSystem(BaedalPrompt.SYSTEM_PROMPT)
-                // TODO: ragAdvisor를 memoryAdvisor 다음, performanceAdvisor 앞에 추가하라.
-                .defaultAdvisors(memoryAdvisor, performanceAdvisor)
+                // memory(10) → rag(20) → performance(100)
+                .defaultAdvisors(memoryAdvisor, ragAdvisor, performanceAdvisor)
                 .defaultTools(orderTools)
                 .build();
     }

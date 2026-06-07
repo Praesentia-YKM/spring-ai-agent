@@ -12,9 +12,9 @@ public class SupportController {
 
     private final ChatClient chatClient;
 
-    // TODO [1단계-H] SupportController에도 동일한 Advisor 체인을 적용하라.
+    // [1단계-H — round4-04 레퍼런스 완성 ③] SupportController에도 동일한 체인이 적용돼 있다.
     //
-    // 아래 .defaultAdvisors(...)를 다음과 같이 바꾼다:
+    // 참고: .defaultAdvisors(...)는 다음과 같이 구성된다:
     //   .defaultAdvisors(memoryAdvisor, ragAdvisor, performanceAdvisor)
     // AssistantController와 완전히 동일한 순서여야 두 엔드포인트가
     // 같은 정책 지식·대화 맥락을 공유해 일관된 상담이 된다.
@@ -26,8 +26,8 @@ public class SupportController {
         // 생성자에서 한 번만 build() — 빌더 누적 함정 회피.
         this.chatClient = builder
                 .defaultSystem(BaedalPrompt.SYSTEM_PROMPT)
-                // TODO: ragAdvisor를 memoryAdvisor 다음, performanceAdvisor 앞에 추가하라.
-                .defaultAdvisors(memoryAdvisor, performanceAdvisor)
+                // memory(10) → rag(20) → performance(100)
+                .defaultAdvisors(memoryAdvisor, ragAdvisor, performanceAdvisor)
                 .defaultTools(orderTools)
                 .build();
     }

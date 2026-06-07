@@ -1,8 +1,8 @@
-# round4-03 · Advisor 체인 통합 — Memory + RAG 협업
+# round4-04 · [정책 인용 규칙] — 환각 방지(Fallback)
 
-> **사전 완성(레퍼런스)**: ① `RagConfig` ✅  ② `KnowledgeLoader`(적재+중복방지) ✅
-> **이 worktree의 초점 기능 ③**: `AssistantController` / `SupportController`의 TODO G·H —
-> `ragAdvisor`를 Advisor 체인에 끼워 RAG 검색 결과가 프롬프트에 주입되게 한다.
+> **사전 완성(레퍼런스)**: ① `RagConfig` ✅ ② `KnowledgeLoader` ✅ ③ Advisor 체인(두 컨트롤러) ✅
+> **이 worktree의 초점 기능 ④**: `BaedalPrompt`의 TODO J — SYSTEM_PROMPT에 `[정책 인용 규칙]`을
+> 직접 작성해 환각을 막는다. ④까지 끝내면 RAG 파이프라인 전체가 동작한다.
 
 ## 0. 사전 요건
 
@@ -13,75 +13,70 @@ ollama pull qwen2.5 && ollama pull qwen3-embedding:0.6b
 
 ## 1. 학습 포인트 (개념)
 
-- **Advisor = 필터 체인.** 각 Advisor는 한 가지 일만 하고, 체인이 조립한다. 기능 추가 = 새 Advisor 끼우기.
-- **순서가 핵심** (`order` 낮을수록 먼저):
-  - `MessageChatMemoryAdvisor(10)` — 이전 대화 이력 주입 ("아까 그 주문"의 orderId 복원)
-  - `QuestionAnswerAdvisor(20)` — RAG 검색 결과 `Context:` 주입
-  - `PerformanceLoggingAdvisor(100)` — 최종 호출 시간/토큰 로깅
-- **왜 Memory가 먼저인가** — Memory가 "아까 그 주문"을 `2024-1234`로 복원한 *뒤*에 RAG가 그 복원된 질문을 임베딩·검색해야 "그 주문의 환불 정책"을 찾는다. 순서가 뒤집히면 복원 전 원문("아까 그 주문 환불 돼요?")으로 검색되어 엉뚱한 정책이 Top-K에 오른다.
-- **빌더 누적 함정(Round 2)** — 핸들러마다 `.defaultAdvisors()` 호출 금지. 생성자에서 1회 build.
+- **환각 2중 방어** — 검색 결과가 빈약/무관해도 LLM은 꾸며낸다. 둘 다 있어야 막힌다:
+  1. `similarityThreshold`(①에서 0.5) — 무관 문서를 Top-K에서 탈락
+  2. `[정책 인용 규칙]`(④, 여기) — "Context에 없으면 지어내지 말고 Fallback 문구로 답하라"
+- **임계값만으로는 부족** — 임계값은 "무관 문서 제거"만 한다. "LLM이 없는 얘기를 지어내는 것"은 프롬프트 규칙으로 막아야 한다.
+- **원문 수치 유지** — "24시간 이내"를 "하루 안에"로 반올림하면 감사 추적이 깨진다.
 
-## 2. 초점 TODO (컨트롤러 2곳)
+## 2. 초점 TODO (BaedalPrompt)
 
-| TODO | 파일 | 내용 |
-|------|------|------|
-| G | `AssistantController` | `.defaultAdvisors(memoryAdvisor, ragAdvisor, performanceAdvisor)` |
-| H | `SupportController` | 동일 — 두 엔드포인트가 같은 지식·맥락을 공유해야 일관됨 |
+`[정책 인용 규칙]` 섹션을 5가지 축으로 작성한다.
 
-### 구현 힌트
+### 구현 힌트 (모범 답안 골격)
 
-```java
-// 두 컨트롤러 모두 생성자에서:
-this.chatClient = builder
-        .defaultSystem(BaedalPrompt.SYSTEM_PROMPT)
-        .defaultAdvisors(memoryAdvisor, ragAdvisor, performanceAdvisor)  // ← ragAdvisor 추가
-        .defaultTools(orderTools)
-        .build();
+```
+[정책 인용 규칙]
+- 환불, 취소, 배달 지연 보상, 쿠폰 관련 질문은 반드시 제공된 Context를 근거로만 답합니다.
+- Context에서 답을 찾을 수 없으면 추측하지 말고 이렇게 답합니다:
+  "해당 내용은 확인이 필요합니다. 상담원 연결로 도와드리겠습니다."
+- 정책을 인용할 때는 원문의 수치/조건(예: "60분 이상", "24시간 이내", "1,000원 쿠폰")을
+  그대로 사용합니다. 임의로 반올림하거나 단순화하지 않습니다.
+- 여러 정책이 관련될 때는 고객 상황(주문 상태, 경과 시간)에 가장 맞는 정책을 선택합니다.
+- 단순 인사·잡담·상담 범위 밖 질문에는 Context를 인용하지 않고
+  "고객님, 저는 주문/배달/환불 관련 상담을 도와드리고 있어요"로 범위를 안내합니다.
 ```
 
-> ⚠️ `defaultAdvisors(...)` 나열 순서는 가독성일 뿐 — 실제 실행 순서는 `getOrder()`가 결정한다.
-> 그래도 관례상 order 오름차순으로 나열한다. (ragAdvisor의 order=20은 ①에서 설정됨)
-> 흔한 실수: 한 컨트롤러에만 달기 → 두 곳 모두 필요.
+> 5가지 축: (1) Context 근거만 (2) Fallback 문구 (3) 원문 수치 유지 (4) 복수 정책 우선순위 (5) 범위 밖 처리.
 
 ## 3. 설계 결정 질문 (README)
 
-- 왜 `memory(10) → rag(20) → performance(100)` 순서인가? "아까 그 주문"을 예로 **프롬프트 조립 순서** 관점에서.
-- 반대 순서가 더 나은 상황이 존재하나? (예: Memory에 개인정보가 있어 임베딩하면 안 되는 경우 → Round 5 Guardrail 예고)
-- (실험은 다음 단계 이후) order(20)→order(5)로 뒤집으면 2턴 대화에서 무엇이 깨지나?
+- "similarityThreshold로 거르면 되지 않나?" — 왜 Fallback 문구를 프롬프트에도 박아야 하는가?
+- Fallback 문구를 프롬프트에 고정하면 LLM 판단과 독립적으로 일관된다. 이 문구를 바꾸면 고객 경험이 어떻게 달라지나?
 
-## 4. 검증 (직접 확인)
+## 4. 검증 — 1단계 시나리오 5종 (직접 확인)
 
 ```bash
-./gradlew bootRun
-# 기동 후: 신규 7건 적재 확인 (②가 이미 완성됨)
+./gradlew bootRun   # 신규 7건 적재 확인
 
-# (1) RAG 단독 — 정책 원문이 응답에 나와야
-curl -s -X POST http://localhost:8080/api/v1/assistant \
-  -H "Content-Type: application/json" -H "X-Session-Id: rag-1" \
-  -d '{"message":"비 오는 날 배달이 늦으면 보상 받을 수 있나요?"}'
-
-# (2) Memory+RAG 협업 (2턴)
-curl -s -X POST http://localhost:8080/api/v1/assistant \
-  -H "Content-Type: application/json" -H "X-Session-Id: memo-rag" \
-  -d '{"message":"주문번호 2024-1234 배달 어디쯤이에요?"}'
-curl -s -X POST http://localhost:8080/api/v1/assistant \
-  -H "Content-Type: application/json" -H "X-Session-Id: memo-rag" \
-  -d '{"message":"아까 그 주문 환불 돼요?"}'
+# 1) 환불(배달 완료 후)  → refund-after-delivered/refund-basic, "24시간 이내" 등 원문
+curl -s -X POST http://localhost:8080/api/v1/assistant -H "Content-Type: application/json" \
+  -H "X-Session-Id: s1" -d '{"message":"배달 완료 후에도 환불 받을 수 있나요?"}'
+# 2) 취소  → cancel-policy, "조리 시작 전/후" 구분
+curl -s -X POST http://localhost:8080/api/v1/assistant -H "Content-Type: application/json" \
+  -H "X-Session-Id: s2" -d '{"message":"결제 후 바로 취소하면 환불되나요?"}'
+# 3) 쿠폰  → coupon-faq, "중복 적용 불가/최소 주문 금액"
+curl -s -X POST http://localhost:8080/api/v1/assistant -H "Content-Type: application/json" \
+  -H "X-Session-Id: s3" -d '{"message":"쿠폰 중복 사용되나요?"}'
+# 4) 개인정보  → [금지] 규칙으로 거절, 전화번호 노출 없음
+curl -s -X POST http://localhost:8080/api/v1/assistant -H "Content-Type: application/json" \
+  -H "X-Session-Id: s4" -d '{"message":"사장님 전화번호 알려주세요"}'
+# 5) 도메인 밖 → Fallback ("상담 범위가 아닙니다"), 환각(비빔밥 추천 등) 없어야
+curl -s -X POST http://localhost:8080/api/v1/assistant -H "Content-Type: application/json" \
+  -H "X-Session-Id: s5" -d '{"message":"오늘 점심 뭐 먹을까요?"}'
 ```
 
-**DEBUG 로그 관찰 포인트** (`org.springframework.ai: DEBUG`):
-- `QuestionAnswerAdvisor`가 검색을 수행했는가
-- 프롬프트에 주입된 `Context:` 블록 — 정책 원문 일부가 보임
-- 2턴에서 Memory가 `2024-1234`를 복원했고, RAG가 환불 정책을 주입했는가
+> 실패 관찰(2단계 예고): `[정책 인용 규칙]`을 통째로 주석 처리하고 시나리오 5를 다시 보내면
+> LLM이 "비빔밥을 추천드려요"처럼 환각한다. 규칙 복원 전/후를 비교 캡처하라.
 
 ## 5. 자가 점검 체크리스트
 
-- [ ] **두 컨트롤러 모두** `defaultAdvisors(memory, rag, performance)` (grep으로 확인)
-- [ ] 응답에 정책 원문 수치 포함 (예: "기상 특보", "+30분")
-- [ ] DEBUG 로그에 `Context:` 블록이 보임
-- [ ] 2턴 대화에서 "아까 그 주문"이 1234로 복원되어 환불 정책 검색에 사용됨
-- [ ] `SupportController`(structured) 응답도 정책 근거 반영
+- [ ] `[정책 인용 규칙]`에 5가지 축이 모두 포함
+- [ ] 시나리오 1~3: 정책 **원문 수치**가 응답에 그대로 등장
+- [ ] 시나리오 4: 전화번호 미노출(거절)
+- [ ] 시나리오 5: Fallback 문구로 응답(환각 없음)
+- [ ] `[정책 인용 규칙]` 제거 시 환각이 실제로 발생함을 확인(실패 관찰)
 
-## 6. 다음 단계
+## 6. 다음 단계 (실험)
 
-③ 완료 후 → `round4-04-policy-prompt` worktree. **①②③ 레퍼런스 완성**, 초점은 ④ `[정책 인용 규칙]`(환각 방지)이다.
+①②③④ 완성 후 → 실험 worktree(별도 생성): ⑤ 청킹 100/800/2000 비교, ⑥ Advisor order 20↔5 뒤집기, ⑦ 토큰 비용(a/b/c). 필요할 때 알려주면 `round4-exp-*` worktree를 만들어 둔다.
