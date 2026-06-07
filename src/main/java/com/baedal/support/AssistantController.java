@@ -2,6 +2,7 @@ package com.baedal.support;
 
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
+import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.web.bind.annotation.*;
 
@@ -11,8 +12,17 @@ public class AssistantController {
 
     private final ChatClient chatClient;
 
+    // TODO [1단계-G] Advisor 체인에 ragAdvisor를 추가하라.
+    //
+    // 아래 .defaultAdvisors(...)를 다음과 같이 바꾼다:
+    //   .defaultAdvisors(memoryAdvisor, ragAdvisor, performanceAdvisor)
+    //                    order=10       order=20    order=100
+    // 순서 주의: memory가 먼저 "아까 그 주문"의 orderId를 복원해야
+    //           RAG가 "그 주문의 환불 정책"을 검색할 수 있다.
+    // (ragAdvisor는 이미 생성자 파라미터로 주입받는다 — 체인에 끼우기만 하면 된다.)
     public AssistantController(ChatClient.Builder builder,
                                MessageChatMemoryAdvisor memoryAdvisor,
+                               QuestionAnswerAdvisor ragAdvisor,
                                PerformanceLoggingAdvisor performanceAdvisor,
                                OrderTools orderTools) {
         // 생성자에서 한 번만 build() — Round 2 2.5.1 빌더 누적 함정 회피.
@@ -20,6 +30,7 @@ public class AssistantController {
         // 그 '뒤'의 입력 토큰을 PerformanceLoggingAdvisor가 측정한다.
         this.chatClient = builder
                 .defaultSystem(BaedalPrompt.SYSTEM_PROMPT)
+                // TODO: ragAdvisor를 memoryAdvisor 다음, performanceAdvisor 앞에 추가하라.
                 .defaultAdvisors(memoryAdvisor, performanceAdvisor)
                 .defaultTools(orderTools)
                 .build();

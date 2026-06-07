@@ -1,6 +1,17 @@
 spring:
   application:
     name: baedal-support-agent
+
+  # -------------------------------------------------------------------
+  # Round 4 — PgVector 연결 (docker-compose.yml 참조)
+  #   db: baedal / user: baedal / password: baedal / port: 5432
+  # -------------------------------------------------------------------
+  datasource:
+    url: jdbc:postgresql://localhost:5432/baedal
+    username: baedal
+    password: baedal
+    driver-class-name: org.postgresql.Driver
+
   ai:
     ollama:
       base-url: http://localhost:11434
@@ -8,6 +19,26 @@ spring:
         model: qwen2.5
         options:
           temperature: 0.3
+      # Round 4 — 임베딩 모델을 Ollama로 통일한다.
+      # 사용 전: ollama pull qwen3-embedding:0.6b
+      embedding:
+        model: qwen3-embedding:0.6b
+
+    # -------------------------------------------------------------------
+    # Round 4 — PgVector 설정
+    #   initialize-schema=true 이면 Spring AI가 앱 기동 시 자동으로
+    #   vector_store 테이블과 확장(vector, uuid-ossp, hstore)을 생성한다.
+    #   dimensions는 임베딩 모델 차원과 반드시 일치해야 한다:
+    #     - qwen3-embedding:0.6b → 1024
+    #     - nomic-embed-text → 768
+    # -------------------------------------------------------------------
+    vectorstore:
+      pgvector:
+        initialize-schema: true
+        index-type: HNSW
+        distance-type: COSINE_DISTANCE
+        dimensions: 1024
+        # 스키마/테이블명 기본값 사용 (public.vector_store)
 
 logging:
   level:
@@ -15,3 +46,4 @@ logging:
     org.springframework.ai.ollama: TRACE
     org.springframework.ai.model.tool: TRACE
     org.springframework.web.client: DEBUG
+    com.baedal.support: DEBUG

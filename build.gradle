@@ -21,6 +21,14 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
     implementation 'org.springframework.ai:spring-ai-starter-model-ollama'
 
+    // Round 4 — RAG (PgVector)
+    //   1) PgVector VectorStore 자동 구성 (Spring AI 1.0)
+    //   2) QuestionAnswerAdvisor 등 벡터 기반 Advisor
+    //   3) PostgreSQL 드라이버 (PgVector는 PostgreSQL 기반)
+    implementation 'org.springframework.ai:spring-ai-starter-vector-store-pgvector'
+    implementation 'org.springframework.ai:spring-ai-advisors-vector-store'
+    runtimeOnly    'org.postgresql:postgresql'
+
     // Round 3 — 3단계(JDBC 저장소 실험) 시 아래 두 줄의 주석을 해제한다.
     // 기본(InMemory) 상태에서 h2가 클래스패스에 있으면 DataSource가 자동 구성되어
     // JdbcChatMemoryRepository가 InMemory Bean과 충돌하므로, 평소엔 주석으로 둔다.

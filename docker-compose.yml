@@ -1,0 +1,38 @@
+version: "3.9"
+
+# ---------------------------------------------------------------
+# 4주차 — PgVector 로컬 기동
+#
+#   pgvector/pgvector 이미지는 PostgreSQL + vector 확장이
+#   사전 설치되어 있다. Spring AI의 PgVectorStore가 기동 시
+#   vector_store 테이블과 확장(vector, uuid-ossp, hstore)을
+#   자동 생성한다 (application.yml의 initialize-schema=true).
+#
+# 기동:
+#   docker compose up -d
+#
+# 확인:
+#   docker exec -it baedal-pgvector psql -U baedal -d baedal \
+#     -c "\\dx"   # 설치된 확장 확인
+# ---------------------------------------------------------------
+
+services:
+  pgvector:
+    image: pgvector/pgvector:pg16
+    container_name: baedal-pgvector
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: baedal
+      POSTGRES_PASSWORD: baedal
+      POSTGRES_DB: baedal
+    volumes:
+      - pgvector-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U baedal -d baedal"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgvector-data:
