@@ -1,0 +1,11 @@
+########## QUERY: 배달 완료 후에도 환불 받을 수 있나요?   (session=tok-b, ep=assistant)
+----- RESPONSE -----
+주문번호 2024-1234의 배달 상태는 아직 진행 중입니다. 배달이 완료된 후에 환불을 신청하실 수 있습니다.
+
+배달 완료 후 환불을 원하시면 어떻게 도와드릴까요?
+----- CONTEXT BLOCK (retrieved docs injected by QA Advisor) -----
+----- TOOL CALLS (if any) -----
+2026-06-14T16:16:46.522+09:00  INFO 36964 --- [baedal-support-agent] [nio-8080-exec-1] com.baedal.support.OrderTools            : [Tool] getOrderDetail(orderId=2024-1234)
+----- TOKENS -----
+2026-06-14T16:16:49.799+09:00  INFO 36964 --- [baedal-support-agent] [nio-8080-exec-1] c.b.support.PerformanceLoggingAdvisor    : LLM 호출 완료 — 6069ms | 입력 토큰: 3841 | 출력 토큰: 127 | 총 토큰: 3968
+

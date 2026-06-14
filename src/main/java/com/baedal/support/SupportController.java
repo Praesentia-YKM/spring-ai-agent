@@ -26,8 +26,8 @@ public class SupportController {
         // 생성자에서 한 번만 build() — 빌더 누적 함정 회피.
         this.chatClient = builder
                 .defaultSystem(BaedalPrompt.SYSTEM_PROMPT)
-                // TODO: ragAdvisor를 memoryAdvisor 다음, performanceAdvisor 앞에 추가하라.
-                .defaultAdvisors(memoryAdvisor, performanceAdvisor)
+                // [1단계-H] AssistantController와 동일한 memory(10) → rag(20) → performance(100) 순서.
+                .defaultAdvisors(memoryAdvisor, ragAdvisor, performanceAdvisor)
                 .defaultTools(orderTools)
                 .build();
     }

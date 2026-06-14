@@ -30,8 +30,9 @@ public class AssistantController {
         // 그 '뒤'의 입력 토큰을 PerformanceLoggingAdvisor가 측정한다.
         this.chatClient = builder
                 .defaultSystem(BaedalPrompt.SYSTEM_PROMPT)
-                // TODO: ragAdvisor를 memoryAdvisor 다음, performanceAdvisor 앞에 추가하라.
-                .defaultAdvisors(memoryAdvisor, performanceAdvisor)
+                // [1단계-G] memory(10) → rag(20) → performance(100) 순서로 등록.
+                // memory가 먼저 "아까 그 주문"의 orderId를 복원해야 rag가 올바른 정책을 검색한다.
+                .defaultAdvisors(memoryAdvisor, ragAdvisor, performanceAdvisor)
                 .defaultTools(orderTools)
                 .build();
     }

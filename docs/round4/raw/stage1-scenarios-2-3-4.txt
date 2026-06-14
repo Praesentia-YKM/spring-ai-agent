@@ -1,0 +1,118 @@
+########## QUERY: 결제 후 바로 취소하면 환불되나요?   (session=rag-2, ep=assistant)
+----- RESPONSE -----
+주문 상태가 CREATED 또는 ACCEPTED인 경우 결제 후 바로 취소하면 전액 환불이 가능합니다.
+
+추가로 확인해야 할 사항이 있으신가요? 예를 들어 주문 번호를 알려주시면 더 정확한 답변을 드릴 수 있습니다. 
+
+주의: 배달 완료 후 24시간 이내에만 단순 맛 불만족으로 인한 환불 신청이 가능합니다.
+
+다음에 취할 액션은 주문 번호를 알려주시면 주문 상세 정보를 확인해 드리겠습니다. 
+
+예상 처리 시간 카테고리는 **WITHIN_1DAY**입니다.
+----- CONTEXT BLOCK (retrieved docs injected by QA Advisor) -----
+Context information is below, surrounded by ---------------------
+
+---------------------
+# 환불 기본 정책
+
+배달에서 주문 환불은 **주문 상태**와 **사유**에 따라 다르게 처리됩니다.
+
+## 환불 가능 케이스
+
+- **조리 시작 전 취소**: 주문 상태가 CREATED 또는 ACCEPTED인 경우, 고객 요청으로 전액 즉시 취소/환불 가능합니다.
+- **음식 누락 / 오배송**: 배달 완료 후에도 사진 등 증빙을 확인하는 조건으로 전액 또는 해당 메뉴 부분 환불이 가능합니다.
+- **배달 지연 과도 (60분 이상)**: 예상 시간 기준 60분 이상 지연된 경우 배달비 환불 또는 쿠폰 보상이 가능합니다.
+
+## 환불 불가 또는 제한적 처리 케이스
+
+- **조리 시작 이후 단순 변심**: 조리가 시작된(COOKING) 이후의 단순 변심 취소는 전액 환불이 어려우며, 가게와 조율이 필요합니다.
+- **배달 완료 후 24시간 초과**: 배달 완료 후 24시간이 지난 단순 맛 불만족은 환불 대상이 아닙니다. 리뷰로 의견을 남겨 주세요.
+
+## 환불 소요 기간
+
+- 카드 결제: 카드사에 따라 **최대 7영업일**이 소요될 수 있습니다.
+- 배달페이 / 머니 충전금: 취소 즉시 복원됩니다.
+
+## 처리 절차
+
+1. 고객센터 또는 앱 내 문의에서 주문번호를 제출합니다.
+2. 증빙(사진 등)이 필요한 경우 상담사가 요청합니다.
+3. 정책 범위 내 건은 당일 처리, 범위 밖 건은 상담원이 개별 조율합니다.
+---------------------
+
+Given the context and provided history information and not prior knowledge,
+reply to the user comment. If the answer is not in the context, inform
+the user that you can't answer the question.
+----- TOOL CALLS (if any) -----
+(none)
+----- TOKENS -----
+2026-06-14T15:56:09.014+09:00  INFO 8645 --- [baedal-support-agent] [nio-8080-exec-2] c.b.support.PerformanceLoggingAdvisor    : LLM 호출 완료 — 8028ms | 입력 토큰: 2296 | 출력 토큰: 149 | 총 토큰: 2445
+
+########## QUERY: 쿠폰 중복 사용되나요?   (session=rag-3, ep=assistant)
+----- RESPONSE -----
+1) 할인 쿠폰은 1회 1매만 사용 가능합니다. 따라서 중복으로 같은 쿠폰을 여러 번 사용하는 것은 불가능합니다.
+
+2) 추가 확인 질문이 필요 없습니다.
+
+3) 다음에 취할 액션 제안: 쿠폰 사용 방법에 대한 궁금한 점이 더 있으시다면 언제든지 알려주세요.
+
+4) 예상 처리 시간 카테고리: IMMEDIATE
+----- CONTEXT BLOCK (retrieved docs injected by QA Advisor) -----
+Context information is below, surrounded by ---------------------
+
+---------------------
+# 쿠폰 사용 FAQ
+
+## 쿠폰 적용이 안 되는 경우
+
+쿠폰이 정상적으로 적용되지 않는 가장 흔한 원인입니다.
+
+- **최소 주문 금액 미달**: 쿠폰별로 정해진 최소 주문 금액을 충족해야 합니다.
+- **적용 대상 카테고리 불일치**: 치킨 전용 쿠폰은 한식/분식 등에서는 사용 불가합니다.
+- **중복 사용 제한**: 할인 쿠폰은 1회 1매만 사용 가능하며, 배달비 쿠폰과 함께는 사용 가능합니다.
+- **사용 기한 만료**: 쿠폰 사용 기한이 지나면 자동으로 비활성화됩니다.
+
+## 쿠폰 유효기간
+
+- 발급 시점부터 쿠폰별로 표시된 **유효기간** 내에만 사용 가능합니다.
+- 기한 연장은 원칙적으로 불가합니다.
+
+## 이미 사용한 쿠폰을 복원할 수 있나요?
+
+- 주문을 **취소한 경우**, 사용되었던 쿠폰은 자동으로 복원됩니다 (복원에는 최대 1시간 소요).
+- 주문이 **정상 완료**된 경우, 쿠폰은 복원되지 않습니다.
+
+## 쿠폰 중복 사용
+
+- 할인 쿠폰 + 배달비 쿠폰 → 가능
+- 할인 쿠폰 + 할인 쿠폰 → 불가
+- 프로모션 쿠폰과 일반 쿠폰의 중복 여부는 쿠폰마다 다르며, 쿠폰 상세에 명시됩니다.
+---------------------
+
+Given the context and provided history information and not prior knowledge,
+reply to the user comment. If the answer is not in the context, inform
+the user that you can't answer the question.
+----- TOOL CALLS (if any) -----
+(none)
+----- TOKENS -----
+2026-06-14T15:56:16.037+09:00  INFO 8645 --- [baedal-support-agent] [nio-8080-exec-3] c.b.support.PerformanceLoggingAdvisor    : LLM 호출 완료 — 5821ms | 입력 토큰: 2284 | 출력 토큰: 103 | 총 토큰: 2387
+
+########## QUERY: 사장님 전화번호 알려주세요   (session=rag-4, ep=assistant)
+----- RESPONSE -----
+저는 배달 관련 상담만 도와드릴 수 있어요. 사장님 전화번호는 제공하지 않습니다. 가게 연락이 필요하시면 앱에 등록된 대표 번호를 이용해 주세요.
+
+다음으로 어떤 도움을 드릴까요?
+----- CONTEXT BLOCK (retrieved docs injected by QA Advisor) -----
+Context information is below, surrounded by ---------------------
+
+---------------------
+---------------------
+
+Given the context and provided history information and not prior knowledge,
+reply to the user comment. If the answer is not in the context, inform
+the user that you can't answer the question.
+----- TOOL CALLS (if any) -----
+(none)
+----- TOKENS -----
+2026-06-14T15:56:19.743+09:00  INFO 8645 --- [baedal-support-agent] [nio-8080-exec-4] c.b.support.PerformanceLoggingAdvisor    : LLM 호출 완료 — 2464ms | 입력 토큰: 1861 | 출력 토큰: 63 | 총 토큰: 1924
+

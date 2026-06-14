@@ -1,0 +1,28 @@
+===== count by category =====
+ n |    category    
+---+----------------
+ 1 | account
+ 1 | cancel
+ 1 | coupon
+ 2 | delivery-delay
+ 2 | refund
+(5 rows)
+
+===== full listing (id, category, title) =====
+         faqid          |    category    |            title            
+------------------------+----------------+-----------------------------
+ privacy                | account        | 개인정보 및 계정 정책
+ cancel-policy          | cancel         | 주문 취소 정책
+ coupon-faq             | coupon         | 쿠폰 사용 FAQ
+ delay-compensation     | delivery-delay | 배달 지연 보상 기준
+ weather-delay          | delivery-delay | 기상 악화 시 배달 지연 안내
+ refund-after-delivered | refund         | 배달 완료 후 환불 정책
+ refund-basic           | refund         | 환불 기본 정책
+(7 rows)
+
+===== total =====
+ total_rows | distinct_faq 
+------------+--------------
+          7 |            7
+(1 row)
+

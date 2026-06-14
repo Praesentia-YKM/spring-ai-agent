@@ -3,6 +3,8 @@
 Spring AI 1.0 GA + Ollama (qwen2.5) 기반의 배달 고객 상담 에이전트 (`/api/v1/support`).
 루퍼스 부트캠프 "Spring AI 배달 상담 에이전트" 6주 과정의 **Round 1 미션 결과**.
 
+> **라운드별 제출 문서:** [Round 1](#) (이 문서) · [Round 2](docs/round2/README.md) · [Round 3](docs/round3/README.md) · **[Round 4 — RAG](docs/round4/README.md)**
+
 ## 개요
 
 - **목표:** `ChatClient` / System Prompt / Structured Output / Streaming / Observability 의 다섯 가지 핵심 개념을 학습하고, 그 위에 배달 상담 도메인의 첫 엔드포인트를 구현한다.

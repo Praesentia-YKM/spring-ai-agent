@@ -1,0 +1,47 @@
+================ NORMAL ORDER: memoryAdvisor(10) -> ragAdvisor(20) ================
+########## TURN 1  (session=chain-obs)
+QUERY: 주문번호 2024-1234 배달 어디?
+----- RESPONSE -----
+주문번호 2024-1234의 배달원은 역삼역 사거리에서 배송 중입니다. 예상 도착 시간은 오늘 오후 4시 26분경입니다.
+
+배달 진행 상황이 궁금하시다면 언제든지 알려주세요.
+다음에 취할 액션 제안: 배달 상태를 계속 확인해보세요.
+
+예상 처리 시간 카테고리: IMMEDIATE
+----- MEMORY: prior USER/ASSISTANT roles in the request (excl. current) -----
+ - SYSTEM
+ - USER
+ - SYSTEM
+ - USER
+ - ASSISTANT
+ - TOOL
+----- RAG CONTEXT (categories/titles retrieved) -----
+----- TOOL CALLS -----
+2026-06-14T16:11:51.935+09:00  INFO 30858 --- [baedal-support-agent] [nio-8080-exec-1] com.baedal.support.OrderTools            : [Tool] getDeliveryStatus(orderId=2024-1234)
+----- TOKENS -----
+2026-06-14T16:11:56.791+09:00  INFO 30858 --- [baedal-support-agent] [nio-8080-exec-1] c.b.support.PerformanceLoggingAdvisor    : LLM 호출 완료 — 14290ms | 입력 토큰: 3847 | 출력 토큰: 127 | 총 토큰: 3974
+
+########## TURN 2  (session=chain-obs)
+QUERY: 아까 그 주문 환불 돼요?
+----- RESPONSE -----
+주문번호 2024-1834의 경우, 현재 환불 상태를 확인하기 위해서는 주문 상태와 배달 상황을 다시 한번 확인해야 합니다. 
+
+배달이 완료된 후 24시간 이내에 요청하신다면, 사진 등 증빙 자료가 필요할 수 있습니다. 만약 이미 배달이 완료되어 환불 신청 시점이 지났다면, 해당 주문은 환불 대상이 아니라고 안내드립니다.
+
+확인해보시겠어요? 추가로 필요한 정보나 도움이 있으시면 말씀해주세요.
+다음에 취할 액션 제안: 배달 상태를 확인하고, 필요하다면 증빙 자료 준비.
+
+예상 처리 시간 카테고리: WITHIN_1DAY
+----- MEMORY: prior USER/ASSISTANT roles in the request (excl. current) -----
+ - USER
+ - ASSISTANT
+ - SYSTEM
+ - USER
+----- RAG CONTEXT (categories/titles retrieved) -----
+   doc: # 환불 기본 정책
+   doc: # 주문 취소 정책
+----- TOOL CALLS -----
+   (none)
+----- TOKENS -----
+2026-06-14T16:12:16.677+09:00  INFO 30858 --- [baedal-support-agent] [nio-8080-exec-2] c.b.support.PerformanceLoggingAdvisor    : LLM 호출 완료 — 18667ms | 입력 토큰: 2867 | 출력 토큰: 178 | 총 토큰: 3045
+
