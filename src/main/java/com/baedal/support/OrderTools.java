@@ -1,5 +1,6 @@
 package com.baedal.support;
 
+import com.baedal.support.observability.AgentMetrics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.annotation.Tool;
@@ -14,6 +15,7 @@ import java.time.LocalDateTime;
 public class OrderTools {
 
     private final OrderMockService orderService;
+    private final AgentMetrics metrics;
 
     @Tool(description = """
             주어진 주문번호의 상세 정보를 조회한다.
@@ -25,7 +27,16 @@ public class OrderTools {
     public OrderDetailView getOrderDetail(
             @ToolParam(description = "조회할 주문번호. 예: 2024-1234") String orderId) {
         log.info("[Tool] getOrderDetail(orderId={})", orderId);
-        return orderService.findById(orderId).map(this::toDetailView).orElse(null);
+        try {
+            OrderDetailView view = orderService.findById(orderId).map(this::toDetailView).orElse(null);
+            metrics.toolInvoke("getOrderDetail", view == null ? "not_found" : "success");
+            return view;
+        } catch (Exception e) {
+            // 설계 원칙: Tool은 예외를 던지지 않고 null/결과 객체를 돌려준다(LLM이 자연스럽게 대응).
+            metrics.toolInvoke("getOrderDetail", "error");
+            log.error("[Tool] getOrderDetail 실패 — {}", e.toString());
+            return null;
+        }
     }
 
     @Tool(description = """
@@ -38,7 +49,15 @@ public class OrderTools {
     public DeliveryStatusView getDeliveryStatus(
             @ToolParam(description = "배달 상태를 조회할 주문번호. 예: 2024-1234") String orderId) {
         log.info("[Tool] getDeliveryStatus(orderId={})", orderId);
-        return orderService.findById(orderId).map(this::toDeliveryView).orElse(null);
+        try {
+            DeliveryStatusView view = orderService.findById(orderId).map(this::toDeliveryView).orElse(null);
+            metrics.toolInvoke("getDeliveryStatus", view == null ? "not_found" : "success");
+            return view;
+        } catch (Exception e) {
+            metrics.toolInvoke("getDeliveryStatus", "error");
+            log.error("[Tool] getDeliveryStatus 실패 — {}", e.toString());
+            return null;
+        }
     }
 
     @Tool(description = """
@@ -53,7 +72,21 @@ public class OrderTools {
             @ToolParam(description = "취소할 주문번호. 예: 2024-1234") String orderId,
             @ToolParam(description = "고객이 말한 취소 사유. 예: '집앞에 사람이 없어요'") String reason) {
         log.info("[Tool] cancelOrder(orderId={}, reason={})", orderId, reason);
+        try {
+            CancelOrderResult result = doCancelOrder(orderId, reason);
+            metrics.toolInvoke("cancelOrder", outcomeTag(result.outcome()));
+            return result;
+        } catch (Exception e) {
+            // 설계 원칙: Tool은 예외를 던지지 않는다 → 결과 객체로 안전하게 돌려준다.
+            metrics.toolInvoke("cancelOrder", "error");
+            log.error("[Tool] cancelOrder 실패 — {}", e.toString());
+            return new CancelOrderResult(orderId, CancelOrderResult.Outcome.NOT_FOUND,
+                    "주문 취소 처리 중 문제가 발생했어요. 잠시 후 다시 시도하시거나 상담원에게 문의해 주세요.");
+        }
+    }
 
+    /** cancelOrder의 실제 처리 로직(예외/메트릭 래핑과 분리). */
+    private CancelOrderResult doCancelOrder(String orderId, String reason) {
         Order order = orderService.findById(orderId).orElse(null);
         if (order == null) {
             return new CancelOrderResult(orderId, CancelOrderResult.Outcome.NOT_FOUND,
@@ -76,6 +109,15 @@ public class OrderTools {
         order.cancel(reason, LocalDateTime.now());
         return new CancelOrderResult(orderId, CancelOrderResult.Outcome.CANCELED,
                 "주문이 취소되었습니다. 결제 취소는 카드사에 따라 최대 7영업일이 소요될 수 있습니다.");
+    }
+
+    /** Tool 호출 결과를 저카디널리티 outcome 태그로 정규화한다. */
+    private static String outcomeTag(CancelOrderResult.Outcome outcome) {
+        return switch (outcome) {
+            case CANCELED, ALREADY_CANCELED -> "success";
+            case NOT_FOUND -> "not_found";
+            case NOT_CANCELABLE -> "not_cancelable";
+        };
     }
 
     private OrderDetailView toDetailView(Order o) {

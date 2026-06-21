@@ -1,5 +1,7 @@
 package com.baedal.support.guardrail;
 
+import com.baedal.support.observability.AgentMetrics;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -12,7 +14,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class InputGuardrailCheckTest {
 
-    private final InputGuardrailAdvisor guardrail = new InputGuardrailAdvisor();
+    // check()는 메트릭을 쓰지 않지만, 생성자가 AgentMetrics를 요구하므로 테스트용 레지스트리를 주입한다.
+    private final InputGuardrailAdvisor guardrail =
+            new InputGuardrailAdvisor(new AgentMetrics(new SimpleMeterRegistry()));
 
     @Test
     void 시스템_프롬프트_유출_유도는_차단() {

@@ -29,6 +29,12 @@ dependencies {
     implementation 'org.springframework.ai:spring-ai-advisors-vector-store'
     runtimeOnly    'org.postgresql:postgresql'
 
+    // Round 6 — Observability & 운영
+    //   actuator   : /actuator/health, /actuator/metrics, /actuator/prometheus 엔드포인트 제공
+    //   micrometer-registry-prometheus : 커스텀 메트릭(baedal.agent.*)을 Prometheus 포맷으로 노출
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+
     // Round 3 — 3단계(JDBC 저장소 실험) 시 아래 두 줄의 주석을 해제한다.
     // 기본(InMemory) 상태에서 h2가 클래스패스에 있으면 DataSource가 자동 구성되어
     // JdbcChatMemoryRepository가 InMemory Bean과 충돌하므로, 평소엔 주석으로 둔다.

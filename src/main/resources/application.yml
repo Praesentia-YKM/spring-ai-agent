@@ -3,6 +3,14 @@ spring:
     name: baedal-support-agent
 
   # -------------------------------------------------------------------
+  # Round 6 — Graceful Shutdown phase timeout (server.shutdown: graceful 와 한 세트)
+  #   SIGTERM 수신 → 새 요청 거부(503) → 진행 중 요청을 최대 30초까지 완료 대기 → 종료.
+  #   LLM 왕복이 10초+ 걸릴 수 있어, 즉시 종료하면 고객 답변이 중간에 잘린다.
+  # -------------------------------------------------------------------
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
+  # -------------------------------------------------------------------
   # Round 4 — PgVector 연결 (docker-compose.yml 참조)
   #   db: baedal / user: baedal / password: baedal / port: 5432
   # -------------------------------------------------------------------
@@ -39,6 +47,41 @@ spring:
         distance-type: COSINE_DISTANCE
         dimensions: 1024
         # 스키마/테이블명 기본값 사용 (public.vector_store)
+
+# -------------------------------------------------------------------
+# Round 6 — Graceful Shutdown (server)
+#   배포/재시작 시 SIGTERM을 받으면 진행 중 요청을 안전하게 끝낸다.
+# -------------------------------------------------------------------
+server:
+  shutdown: graceful
+
+# -------------------------------------------------------------------
+# Round 6 — Observability (Spring Boot Actuator + Micrometer)
+#   /actuator/health      : ollama 커스텀 인디케이터 포함 종합 상태
+#   /actuator/metrics     : baedal.agent.* 커스텀 지표
+#   /actuator/prometheus  : Prometheus 스크래핑 포맷
+# -------------------------------------------------------------------
+management:
+  endpoints:
+    web:
+      exposure:
+        # 운영에 필요한 것만 노출(나머지 actuator 엔드포인트는 닫아둔다).
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always       # /actuator/health에 ollama 등 컴포넌트별 상태까지 노출
+      show-components: always
+      probes:
+        enabled: true            # liveness/readiness 프로브 활성(로컬에서도)
+      group:
+        # Ollama가 죽으면 readiness=DOWN → (k8s/LB가) 트래픽을 끊어 장애 전파를 차단한다.
+        readiness:
+          include: readinessState,ollama
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
 
 logging:
   level:

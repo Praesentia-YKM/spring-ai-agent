@@ -1,5 +1,7 @@
 package com.baedal.support.guardrail;
 
+import com.baedal.support.observability.AgentMetrics;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.ChatClientResponse;
@@ -43,7 +45,10 @@ import java.util.regex.Pattern;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class InputGuardrailAdvisor implements CallAdvisor {
+
+    private final AgentMetrics metrics;
 
     // [1단계-A] 최대 입력 길이 — 결정: 2000자.
     //
@@ -102,6 +107,7 @@ public class InputGuardrailAdvisor implements CallAdvisor {
         GuardrailResult result = check(userInput);
 
         if (!result.allowed()) {
+            metrics.guardrailBlock("input", result.reason());   // 6주차: kind=input, reason=차단사유
             // 차단 입력 자체는 평문이므로 앞 40자만, 그것도 WARN으로만 남긴다(로그 폭주/유출 방지).
             log.warn("[InputGuardrail] 차단 — reason={} | input(앞 40자)=\"{}\"",
                     result.reason(), preview(userInput));

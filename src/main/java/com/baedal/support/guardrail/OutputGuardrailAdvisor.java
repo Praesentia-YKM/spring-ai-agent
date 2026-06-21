@@ -1,5 +1,6 @@
 package com.baedal.support.guardrail;
 
+import com.baedal.support.observability.AgentMetrics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClientRequest;
@@ -44,6 +45,7 @@ import java.util.List;
 public class OutputGuardrailAdvisor implements CallAdvisor {
 
     private final SensitiveDataMasker masker;
+    private final AgentMetrics metrics;
 
     // [2단계-D] 시스템 프롬프트 유출 마커 — BaedalPrompt의 섹션 헤더들.
     //   LLM이 응답에 이 섹션명을 그대로 토해내면 내부 지침이 새어나간 증거다.
@@ -76,6 +78,7 @@ public class OutputGuardrailAdvisor implements CallAdvisor {
 
         // [2단계-E①] 빈 응답 방어
         if (original.isBlank()) {
+            metrics.guardrailBlock("output", "EMPTY_RESPONSE");
             log.warn("[OutputGuardrail] 빈 응답 감지 — reason=EMPTY_RESPONSE");
             return replace(response, request, EMPTY_FALLBACK);
         }
@@ -83,6 +86,7 @@ public class OutputGuardrailAdvisor implements CallAdvisor {
         // [2단계-E②] 시스템 프롬프트 유출 → 통째 치환 (마스킹보다 우선: 더 심각)
         for (String marker : LEAK_MARKERS) {
             if (original.contains(marker)) {
+                metrics.guardrailBlock("output", "PROMPT_LEAK");
                 log.warn("[OutputGuardrail] 응답 치환 — reason=PROMPT_LEAK | marker={}", marker);
                 return replace(response, request, LEAK_FALLBACK);
             }
@@ -91,6 +95,7 @@ public class OutputGuardrailAdvisor implements CallAdvisor {
         // [2단계-E③] 민감 정보 → 값만 마스킹 (맥락 유지)
         if (masker.containsSensitive(original)) {
             String masked = masker.mask(original);
+            metrics.guardrailBlock("output", "SENSITIVE_MASKED");
             // 학습용 한정: 원본은 평문이라 DEBUG로만 대조한다(운영에서는 평문 로그 금지 — AI 코드리뷰 결함 참고).
             log.debug("[OutputGuardrail] 마스킹 전: {}", original);
             log.info("[OutputGuardrail] 민감 정보 마스킹 적용");
