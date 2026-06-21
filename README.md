@@ -526,8 +526,21 @@ AI 가 생성한 코드는 "동작" 하지만 **production 책임 (정책·관�
 
 ---
 
+## Round 6 — 에이전트 완성 (운영화)
+
+Round 1~5 기능 위에 **운영 부품(Observability·Stability)** 을 횡단 관심사로 얹어, 통합 후 드러나는 3대 문제(관찰 불가·장애 전파·비용/남용)를 관찰·방어·복구한다.
+
+- 신규: `observability/AgentMetrics`(지표 7종) · `observability/OllamaHealthIndicator` · `ratelimit/SimpleRateLimitFilter`(60s/30건→429)
+- 배선: Controller/Guardrail/Performance/Tool에 메트릭 1줄씩 · `application.yml`에 actuator 노출 + graceful shutdown 30s
+- 검증: `./gradlew test` 그린 · 런타임은 `bash docs/round6/verify.sh`
+
+📄 **상세 제출문서:** [docs/round6/README.md](docs/round6/README.md) — Advisor order 근거 · 4대 설계결정 · 지표 카탈로그 · 대시보드 3종 · 3대 장애 관찰 · 6주 회고
+
+---
+
 ## 참조
 
+- [Round 6 설계·관찰 문서](docs/round6/README.md) — 운영화(Observability·Stability) 전체
 - [Round 1 PRD](docs/round1/prd/round1-prd.md) — 요구사항·범위·인수 시나리오·평가 기준
 - [Round 1 ADR](docs/round1/adr/) — 7개 트레이드오프 결정 기록 (ADR-001~007)
 - [Round 1 학습 회고](docs/round1/retrospective/round1-retrospective.md) — 5개 sub-topic × 11개 아하 모먼트
