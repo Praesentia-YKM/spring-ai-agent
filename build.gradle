@@ -46,3 +46,9 @@ dependencyManagement {
         mavenBom "org.springframework.ai:spring-ai-bom:${springAiVersion}"
     }
 }
+
+// Round 5 — Guardrail 순수 로직(마스커/디텍터/입력검사)에 JUnit 5 단위 테스트를 추가.
+// (round1~4는 테스트가 없어 불필요했으나, JUnit Jupiter 테스트 인식을 위해 명시한다.)
+tasks.named('test') {
+    useJUnitPlatform()
+}
