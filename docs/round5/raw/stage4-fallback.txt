@@ -1,0 +1,43 @@
+Round 5 - 4단계 Graceful Fallback 실측 (2026-06-21)
+
+────────────────────────────────────────────────────────────────────
+[4①] Tool 강제 실패 — OrderTools.getDeliveryStatus에 throw new RuntimeException("simulated Tool failure")
+────────────────────────────────────────────────────────────────────
+
+(A) Spring AI 기본값(alwaysThrow=false)일 때 — Fallback이 작동하지 않음:
+질의: "주문번호 2024-1234 지금 어디쯤인지 배달 상태 알려줘"
+[res] )((((getDeliveryStatus {"orderId": "2024-1234"}))))
+      주문번호 2024-1234의 배달 상태를 확인하겠습니다. 잠시만 기다려주세요. ...
+→ Tool 예외를 ToolExecutionExceptionProcessor가 삼켜서 LLM에 결과로 돌려줌.
+  컨트롤러 try/catch 미작동, LLM이 도구 호출 흔적까지 흘리며 품질 저하.
+
+(B) ToolConfig로 alwaysThrow=true 적용 후 — Fallback 정상:
+[res] 죄송해요, 지금 일시적인 문제가 발생했어요. 잠시 후 다시 시도하시거나, 급하시면 상담원(1600-0987)으로 연락 주세요.
+  --- 내부 로그(ERROR, 스택은 로그에만) ---
+  [Assistant] 응답 생성 실패 — org.springframework.ai.tool.execution.ToolExecutionException: simulated Tool failure
+    at org.springframework.ai.tool.method.MethodToolCallback.callMethod(MethodToolCallback.java:172) ...
+→ 응답 본문에 스택/예외 메시지 노출 없음. 연결번호 1600-0987 포함.
+
+────────────────────────────────────────────────────────────────────
+[4②] LLM 실패
+────────────────────────────────────────────────────────────────────
+
+(A) base-url=http://localhost:1 — 앱이 '기동조차' 안 됨(관찰):
+  Started BaedalSupportApplication ... (Tomcat은 뜸)
+  ERROR o.s.boot.SpringApplication : Application run failed
+  org.springframework.web.client.ResourceAccessException:
+    I/O error on POST request for "http://localhost:1/api/embed": Connection refused
+→ KnowledgeLoader(RAG 시드)가 같은 base-url의 임베딩 엔드포인트를 쓰므로 기동 시 실패 → 컨텍스트 종료.
+  즉 임베딩/LLM은 '기동 시 하드 의존성'. 요청 시점 Fallback을 보려면 임베딩은 살려야 함.
+
+(B) base-url=11434 유지 + chat.model=nonexistent-chat-model — 요청 시점 LLM 실패:
+질의: "환불은 보통 며칠 걸리나요?"
+[/assistant res] 죄송해요, 지금 일시적인 문제가 발생했어요. ... 상담원(1600-0987)으로 연락 주세요.
+[/support  res] {"summary":"죄송해요, 지금 일시적인 문제가 발생했어요. ... 상담원(1600-0987)...",
+                "category":"ETC","urgency":"HIGH","nextAction":"상담원 연결 또는 재시도",
+                "neededInfo":[],"estimatedResolution":"EXTENDED"}
+  --- 내부 로그(ERROR) ---
+  [Assistant] 응답 생성 실패 — org.springframework.ai.retry.NonTransientAiException: 404 - {"error":"model 'nonexistent-chat-model' not found"}
+→ 두 엔드포인트 모두 스택/404 미노출, 안전 Fallback. /support는 스키마(SupportResponse)로 조립.
+
+검증 후 원상복구: throw 제거 / base-url=11434 / chat.model=qwen2.5. (ToolConfig alwaysThrow=true는 설계로 유지)

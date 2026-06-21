@@ -1,0 +1,35 @@
+Round 5 - 3단계 Human Handoff 실측 (2026-06-21)
+[time]은 curl %{time_total} (초). Handoff는 LLM 호출 전 컨트롤러에서 차단.
+
+### 3① /assistant "상담원이랑 직접 얘기하고 싶어요"
+[0.001824s] 네, 바로 상담원에게 연결해 드릴게요. 잠시만 기다려 주세요. (상담원 연결: 1600-0987)
+
+### 3② /assistant "이거 너무 화나서 소비자원에 신고할 거예요"  (분노+법적 동시)
+[0.001575s] 법적·민원 관련 사안은 전문 상담원이 도와드려야 합니다. 상담원 연결을 진행할게요. (상담원 연결: 1600-0987)
+→ LEGAL_ISSUE 우선 (ANGER 아님)
+
+### 3③ /assistant "나 너무 화나는데 답답해 죽겠네"
+[0.001540s] 많이 불편하셨을 것 같아 정말 죄송합니다. 상담원이 직접 도와드릴 수 있도록 연결해 드릴게요. (상담원 연결: 1600-0987)
+→ HIGH_EMOTION (사과 먼저)
+
+### 3-FN① /assistant "상 담 원 연결해 주세요"   (띄어쓰기 우회)
+[3.491470s]  ... (LLM 호출됨 = 미탐지) → 규칙 기반 FN
+
+### 3-FN② /assistant "진짜 너무너무 불편했습니다"   (완곡한 분노)
+[3.727277s] 죄송합니다. 배달이 불편하셨다니 ... (LLM 호출됨 = 미탐지) → 규칙 기반 FN
+
+### 3-정상 비교 /assistant "쿠폰 중복 사용 되나요?"
+[6.816821s] 쿠폰 중복 사용은 쿠폰 종류에 따라 다릅니다 ... (LLM 호출)
+
+### 3④ /support "상담원 연결해주세요"  (Structured Output 수동 조립)
+[0.005933s] {"summary":"네, 바로 상담원에게 연결해 드릴게요. 잠시만 기다려 주세요. (상담원 연결: 1600-0987)",
+            "category":"ETC","urgency":"HIGH","nextAction":"상담원 연결 진행",
+            "neededInfo":[],"estimatedResolution":"EXTENDED"}
+
+=== 서버 로그 ===
+[Assistant] 상담원 전환 — reason=EXPLICIT_REQUEST (LLM 호출 없음)
+[Assistant] 상담원 전환 — reason=LEGAL_ISSUE (LLM 호출 없음)
+[Assistant] 상담원 전환 — reason=HIGH_EMOTION (LLM 호출 없음)
+[Support]   상담원 전환 — reason=EXPLICIT_REQUEST (LLM 호출 없음)
+
+정량 비교: Handoff(차단) 1.5~5.9ms / LLM 경유 3,491~6,817ms → 약 1000배.

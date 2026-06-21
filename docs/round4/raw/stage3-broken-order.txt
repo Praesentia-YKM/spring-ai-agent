@@ -1,0 +1,51 @@
+================ BROKEN ORDER: ragAdvisor(5) -> memoryAdvisor(10) ================
+########## TURN 1  (session=chain-broken)
+QUERY: 주문번호 2024-1234 배달 어디?
+----- RESPONSE -----
+주문번호 2024-1234의 배달원은 현재 역삼역 사거리에 있습니다. 예상 도착 시간은 오늘 오후 4시 28분입니다.
+
+배송 진행 상황을 계속 확인해보세요. 혹시 다른 궁금한 점이 있으신가요?
+
+다음에 취할 액션 제안: 배달 상태를 지속적으로 확인합니다.
+예상 처리 시간 카테고리: WITHIN_30MIN
+----- MEMORY: prior USER/ASSISTANT roles in the request (excl. current) -----
+ - SYSTEM
+ - USER
+ - SYSTEM
+ - USER
+ - ASSISTANT
+ - TOOL
+----- RAG CONTEXT (categories/titles retrieved) -----
+----- TOOL CALLS -----
+2026-06-14T16:13:28.371+09:00  INFO 33031 --- [baedal-support-agent] [nio-8080-exec-1] com.baedal.support.OrderTools            : [Tool] getDeliveryStatus(orderId=2024-1234)
+----- TOKENS -----
+2026-06-14T16:13:33.388+09:00  INFO 33031 --- [baedal-support-agent] [nio-8080-exec-1] c.b.support.PerformanceLoggingAdvisor    : LLM 호출 완료 — 13769ms | 입력 토큰: 3842 | 출력 토큰: 162 | 총 토큰: 4004
+
+########## TURN 2  (session=chain-broken)
+QUERY: 아까 그 주문 환불 돼요?
+----- RESPONSE -----
+주문번호 2024-1234는 현재 배달 중입니다. 예상 도착 시간은 오늘 오후 5시 28분입니다.
+
+현재 상태를 확인해보니, 배달이 진행 중이라 환불이 불가능합니다. 배달 완료 후 24시간 이내에만 환불 신청이 가능하므로, 현재는 환불을 요청할 수 없습니다.
+
+배송이 완료된 후 다시 문의해주시면 도와드리겠습니다.
+
+다음에 취할 액션 제안: 배달 상태를 지속적으로 확인합니다.
+예상 처리 시간 카테고리: WITHIN_30MIN
+----- MEMORY: prior USER/ASSISTANT roles in the request (excl. current) -----
+ - USER
+ - ASSISTANT
+ - SYSTEM
+ - USER
+ - USER
+ - ASSISTANT
+ - SYSTEM
+ - USER
+ - ASSISTANT
+ - TOOL
+----- RAG CONTEXT (categories/titles retrieved) -----
+----- TOOL CALLS -----
+2026-06-14T16:13:47.228+09:00  INFO 33031 --- [baedal-support-agent] [nio-8080-exec-2] com.baedal.support.OrderTools            : [Tool] getOrderDetail(orderId=2024-1234)
+----- TOKENS -----
+2026-06-14T16:13:54.488+09:00  INFO 33031 --- [baedal-support-agent] [nio-8080-exec-2] c.b.support.PerformanceLoggingAdvisor    : LLM 호출 완료 — 19900ms | 입력 토큰: 6051 | 출력 토큰: 204 | 총 토큰: 6255
+

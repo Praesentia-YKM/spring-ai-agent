@@ -35,3 +35,8 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Round 3 — 로컬 실험 스크립트 / H2 파일 / PR 본문 (제출 제외) ###
+/data/
+/playground/
+/pr.md

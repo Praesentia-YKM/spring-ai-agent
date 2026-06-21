@@ -1,0 +1,24 @@
+# Round 3 — 3단계: JdbcChatMemoryRepository 실험용 프로필
+# 실행: ./gradlew bootRun --args='--spring.profiles.active=jdbc'
+# (build.gradle의 JDBC 의존성 주석을 먼저 해제해야 한다)
+spring:
+  datasource:
+    # 재시작 실험: mem ↔ file 을 바꿔가며 관찰
+    #   jdbc:h2:mem:baedal  → JVM 생존 동안만 유지
+    #   jdbc:h2:file:./data/baedal → 파일 기반 영속
+    url: jdbc:h2:mem:baedal;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  h2:
+    console:
+      enabled: true          # http://localhost:8080/h2-console
+  ai:
+    chat:
+      memory:
+        repository:
+          jdbc:
+            initialize-schema: always     # always / never / embedded
+            # ⚠️ Spring AI 1.0.0은 schema-h2.sql을 동봉하지 않는다(postgresql/mariadb/sqlserver/hsqldb만 제공).
+            #    H2를 MODE=PostgreSQL로 쓰므로 platform을 postgresql로 강제해 schema-postgresql.sql을 로드한다.
+            platform: postgresql
